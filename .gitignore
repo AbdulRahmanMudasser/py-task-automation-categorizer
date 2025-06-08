@@ -1,0 +1,6 @@
+venv/
+config.env
+documents/
+data/
+tests/
+deployment-workflow/
