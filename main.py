@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from notion_client import Client
 from notion_client.errors import APIResponseError
 import logging
-from datetime import date
+from datetime import date, datetime, timedelta
 import re
 from difflib import SequenceMatcher
 
@@ -115,6 +115,8 @@ def get_property(page, prop_name, default=""):
             return prop["title"][0]["plain_text"].strip() if prop.get("title") and len(prop["title"]) > 0 else default
         elif prop.get("type") == "select":
             return prop["select"]["name"] if prop.get("select") and "name" in prop["select"] else default
+        elif prop.get("type") == "last_edited_time":
+            return prop["last_edited_time"] if prop.get("last_edited_time") else default
         return default
     except (KeyError, AttributeError, IndexError) as e:
         logger.warning(f"Failed to get property '{prop_name}': {e}, Properties: {page['properties']}")
@@ -214,7 +216,17 @@ except Exception as e:
     logger.error(f"Failed to load categories: {e}")
     raise
 
-# Query daily tasks where "Start Automation" is "Yes"
+# Load or create last run timestamp
+last_run_file = "last_run.txt"
+last_run = None
+if os.path.exists(last_run_file):
+    with open(last_run_file, "r") as f:
+        last_run = datetime.fromisoformat(f.read().strip())
+else:
+    last_run = datetime.now() - timedelta(days=1)  # Default to a day ago for initial run
+logger.info(f"Last run time: {last_run}")
+
+# Query daily tasks where "Start Automation" is "Yes" and filter by last edited time
 try:
     today = date.today().isoformat()
     filter_conditions = {
@@ -223,6 +235,12 @@ try:
                 "property": "Start Automation",
                 "select": {
                     "equals": "Yes"
+                }
+            },
+            {
+                "property": "Last Edited Time",
+                "date": {
+                    "after": last_run.isoformat()
                 }
             }
         ]
@@ -234,7 +252,7 @@ try:
     for task in daily_tasks["results"]:
         task_name = get_property(task, "Task Name")
         logger.debug(f"Task properties: Task Name = {task_name}, Full Properties = {task['properties']}")
-    logger.info(f"Found {len(daily_tasks['results'])} tasks to process where Start Automation is 'Yes'.")
+    logger.info(f"Found {len(daily_tasks['results'])} updated tasks to process where Start Automation is 'Yes'.")
 except APIResponseError as e:
     logger.error(f"API error querying daily tasks: {e}")
     raise
@@ -308,10 +326,7 @@ for page in daily_tasks["results"]:
     except Exception as e:
         logger.error(f"Failed to process task '{task_name}': {e}")
 
-# Test mode (commented out)
-# test_task = "Side Project"
-# if test_task.lower().strip() in task_mapping:
-#     test_category, test_priority, test_tag = task_mapping[test_task.lower().strip()]
-#     logger.info(f"Test assignment for '{test_task}': Category = '{test_category}', Priority = '{test_priority}', Tag = '{test_tag}'")
-# else:
-#     logger.warning(f"Test task '{test_task}' not found in Categories database. Please add it to the Categories database.")
+# Update last run timestamp
+with open(last_run_file, "w") as f:
+    f.write(datetime.now().isoformat())
+logger.info(f"Updated last run time to: {datetime.now().isoformat()}")
