@@ -193,19 +193,24 @@ for page in daily_tasks:
             priority_options = {opt["name"] for opt in todays_schema["properties"]["Priority"]["select"]["options"]} if "Priority" in todays_column_names and todays_schema["properties"]["Priority"]["type"] == "select" else set()
             tag_options = {opt["name"] for opt in todays_schema["properties"]["Tag"]["select"]["options"]} if "Tag" in todays_column_names and todays_schema["properties"]["Tag"]["type"] == "select" else set()
 
-            # Match and assign only if the option exists
-            if category in category_options and "Category Name" in todays_column_names:
+            # Check current values and update only if unassigned
+            current_category = page["properties"].get("Category Name", {}).get("select", {}).get("name")
+            current_priority = page["properties"].get("Priority", {}).get("select", {}).get("name")
+            current_tag = page["properties"].get("Tag", {}).get("select", {}).get("name")
+
+            # Match and assign only if the option exists and the current value is unset
+            if not current_category and category in category_options and "Category Name" in todays_column_names:
                 update_properties["Category Name"] = {"select": {"name": category}}
             else:
-                logger.warning(f"Category '{category}' not found in Category Name options for task '{task_name}'")
-            if priority in priority_options and "Priority" in todays_column_names:
+                logger.debug(f"Category for '{task_name}' is already set to '{current_category}' or '{category}' not found")
+            if not current_priority and priority in priority_options and "Priority" in todays_column_names:
                 update_properties["Priority"] = {"select": {"name": priority}}
             else:
-                logger.warning(f"Priority '{priority}' not found in Priority options for task '{task_name}'")
-            if tag in tag_options and "Tag" in todays_column_names:
+                logger.debug(f"Priority for '{task_name}' is already set to '{current_priority}' or '{priority}' not found")
+            if not current_tag and tag in tag_options and "Tag" in todays_column_names:
                 update_properties["Tag"] = {"select": {"name": tag}}
             else:
-                logger.warning(f"Tag '{tag}' not found in Tag options for task '{task_name}'")
+                logger.debug(f"Tag for '{task_name}' is already set to '{current_tag}' or '{tag}' not found")
 
             if update_properties:
                 notion.pages.update(
