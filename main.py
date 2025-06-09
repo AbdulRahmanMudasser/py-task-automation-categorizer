@@ -226,24 +226,14 @@ else:
     last_run = datetime.now() - timedelta(days=1)  # Default to a day ago for initial run
 logger.info(f"Last run time: {last_run}")
 
-# Query daily tasks where "Start Automation" is "Yes" and filter by last edited time
+# Query daily tasks where "Start Automation" is "Yes"
 try:
     today = date.today().isoformat()
     filter_conditions = {
-        "and": [
-            {
-                "property": "Start Automation",
-                "select": {
-                    "equals": "Yes"
-                }
-            },
-            {
-                "property": "Last Edited Time",
-                "date": {
-                    "after": last_run.isoformat()
-                }
-            }
-        ]
+        "property": "Start Automation",
+        "select": {
+            "equals": "Yes"
+        }
     }
     daily_tasks = notion.databases.query(
         database_id=TODAYS_TASKS_DB_ID,
@@ -252,7 +242,7 @@ try:
     for task in daily_tasks["results"]:
         task_name = get_property(task, "Task Name")
         logger.debug(f"Task properties: Task Name = {task_name}, Full Properties = {task['properties']}")
-    logger.info(f"Found {len(daily_tasks['results'])} updated tasks to process where Start Automation is 'Yes'.")
+    logger.info(f"Found {len(daily_tasks['results'])} tasks to process where Start Automation is 'Yes'.")
 except APIResponseError as e:
     logger.error(f"API error querying daily tasks: {e}")
     raise
